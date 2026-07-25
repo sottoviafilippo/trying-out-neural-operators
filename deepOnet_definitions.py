@@ -1,15 +1,15 @@
-import numpy as np
-import torch
 import torch.nn as nn
 import torch.optim as optim
 from typing import Callable
 
 
-class deepOnet_Poisson:
-    """Defines and sets up a deepOnet"""
+class deepOnet_Poisson(nn.Module):
+    """Defines and sets up a deepOnet, trained on solutions of the 2d Poisson equation"""
     # (for the moment) the sampling points of the input functions are fixed
 
     def __init__(self, function_discretization_size:int, N_nodes_branch:int, N_nodes_trunk:int, latent_dimension:int, domain_dimension:int = 2):
+
+        super().__init__() # refers to nn.Module
 
         self.N_nodes_branch = N_nodes_branch
         self.N_nodes_trunk  = N_nodes_trunk
@@ -20,7 +20,7 @@ class deepOnet_Poisson:
         # don't use ReLU for physics-informed networks because second derivatives vanish
 
         # for the moment I am using two hidden layers. To be corrected later if necessary
-        self.trunk_network = nn.Sequential(
+        self.branch_network = nn.Sequential(
             nn.Linear(self.function_discretization_size, self.N_nodes_branch),  
             nn.ReLU(),         
             nn.Linear(self.N_nodes_branch, self.N_nodes_branch),  
