@@ -9,8 +9,8 @@ def generate_source_function(num_modes:int=20, max_freq:int=100, max_amplitude =
     Uses a random truncated Fourier series with random amplitudes
     """
     # first pick some frequencies
-    kx = np.random.randint(1, max_freq + 1, size=num_modes)
-    ky = np.random.randint(1, max_freq + 1, size=num_modes)
+    kx = np.random.randint(-(max_freq + 1), max_freq + 1, size=num_modes)
+    ky = np.random.randint(-(max_freq + 1), max_freq + 1, size=num_modes)
 
     # now draw the corresponding amplitudes and phases
     amplitudes = np.random.uniform(-max_amplitude, max_amplitude, size=num_modes)
