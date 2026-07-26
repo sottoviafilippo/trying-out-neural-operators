@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from typing import Callable
+import numpy as np
 
 
 # note: many comments are pedagogical and pretty basic: written for myself while writing this class, for learning
@@ -60,6 +61,19 @@ class deepOnet_Poisson(nn.Module):
         self.epochs = []
         self.losses = []
 
+        # First do some checks. Dimensions have to match, in particular the size of the array representing the input function itself
+        # First check the branch network dimension
+        if branch_X.shape[1] != self.function_discretization_size:
+            raise ValueError(
+                f"Branch input mismatch! The model expects functions discretized at " f"{self.function_discretization_size} points, but got {branch_X.shape[1]}."
+            )
+            
+        # Then check the trunk network input dimension (2 for the 2d Poisson equation, which I am taking as first test case)
+        if trunk_X.shape[1] != self.domain_dimension:
+            raise ValueError(
+                f"Trunk input mismatch! The model expects a domain dimension of " f"{self.domain_dimension}, but got {trunk_X.shape[1]}."
+            )
+
         for epoch in range(num_epochs):
     
             predictions = self(branch_X, trunk_X)  # __call__ "does some bookkeeping" and calls the previously defined self.forward()
@@ -71,17 +85,27 @@ class deepOnet_Poisson(nn.Module):
 
             # Track the loss history
             self.epochs.append(epoch + 1)
-            self. losses.append(loss.item())
+            self.losses.append(loss.item())
 
             if print_progress and (epoch + 1) % 100 == 0:
                 print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}")
 
 
-    def fit_from_npz(self, num_epochs:int, print_progress = True):
+    def fit_from_npz(self, training_dataset:str, num_epochs:int, print_progress = True):
 
         """Fits the model using a training dataset stored in a .npz file"""
-        #TO DO: Write this function taking into account the way the file was saved
+        training_data = np.load(training_dataset)
+
+        coords = training_data["coords"]
+        training_branch = training_data["f"]
+        training_Y = training_data["u"]
+
+        self.fit(num_epochs, training_branch, coords, training_Y, print_progress = print_progress)
+
         pass
 
 
-# TO DO: IN THE FIT FUNCTION, CHECK THAT THE dimension of the array representing the function actually corresponds to the function discretization size
+
+# to do: implement train/eval split to prevent overfitting
+# to do: implement GPU usage
+# to do: mini-batching

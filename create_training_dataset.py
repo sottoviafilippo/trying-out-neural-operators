@@ -34,7 +34,8 @@ mymesh.build_stiffness_matrix()
 # coordinates of mesh points 
 X, Y = np.meshgrid(x, y, indexing="ij")
 coords = np.stack([X.ravel(), Y.ravel()], axis=-1)
-diri = lambda x, y: 0
+# in this way I create a list will all sets of 2d cordinates
+diri = lambda x, y: 0 # (0) dirichlet boundary conditions to be used for the moment
 
 
 
@@ -55,6 +56,8 @@ for i in range(N_source_functions):
     func = generate_source_function()
     res_finite_elements = mymesh.run_simulation_poisson_dirichlet(func, diri)
 
+    # for the moment I evaluate the function at the same points at which the differential eq is solved
+    # may be changed later
     f_all[i] = func(X, Y).ravel()
     u_all[i] = np.asarray(res_finite_elements).ravel()
 
