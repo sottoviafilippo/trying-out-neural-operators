@@ -4,7 +4,7 @@ from pathlib import Path
 
 # to understnad : need to normalise or not ?? up to how large of a source function can I get??
 # HOW MANY MODES ? WHT MAX FREQ?
-def generate_source_function(num_modes:int=4, max_freq:int=5, max_amplitude = 1.):
+def generate_source_function(num_modes:int=3, max_freq:int=4, max_amplitude = 1.):
     """
     Uses a random truncated Fourier series with random amplitudes
     """
@@ -49,7 +49,7 @@ to use (simple for the moment): random polynomials, random Fourier series
 """
 
 
-N_source_functions = 7000 # number of source functions for which we compute the solution
+N_source_functions = 20000 # number of source functions for which we compute the solution
 N_points_trunk  = coords_trunk.shape[0]
 N_points_branch = coords_branch.shape[0]
 

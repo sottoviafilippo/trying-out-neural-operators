@@ -65,6 +65,9 @@ class deepOnet_v1(nn.Module):
 
     def fit(self, num_epochs:int, branch_X, trunk_X, Y, branch_X_eval, trunk_X_eval, Y_eval, print_progress = True):
         # X, Y in the training dataset. 
+
+        print("Y std across samples:", Y.std(dim=0).mean().item())
+        print("Y std across points:", Y.std(dim=1).mean().item())
         
         self.epochs = []
         self.losses = []
@@ -111,8 +114,7 @@ class deepOnet_v1(nn.Module):
                     preds = self(branch_X, trunk_X)
                     print("prediction std across samples:", preds.std(dim=0).mean().item())
                     print("prediction std across points:", preds.std(dim=1).mean().item())
-                    print("Y std across samples:", Y.std(dim=0).mean().item())
-                    print("Y std across points:", Y.std(dim=1).mean().item())
+                    
 
 
     def fit_from_npz(self, training_dataset:str, num_epochs:int, eval_rel_size = 0.2, print_progress = True):
@@ -159,3 +161,4 @@ class deepOnet_v1(nn.Module):
 # to do: implement GPU usage
 # to do: mini-batching
 # to do: implement ReduceLROnPlateau for eval/train samples
+# to do: fourrier embedded deeponets
