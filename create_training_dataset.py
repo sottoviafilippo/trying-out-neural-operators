@@ -26,8 +26,8 @@ def generate_source_function(num_modes:int=4, max_freq:int=5, max_amplitude = 1.
     
 
 
-x_trunk = np.linspace(0, 2, 40)
-y_trunk = np.linspace(0, 2, 40)
+x_trunk = np.linspace(-1, 1, 40)
+y_trunk = np.linspace(-1, 1, 40)
 mymesh = Mesh(x_trunk, y_trunk, verbose=True)
 mymesh.build_mass_matrix()
 mymesh.build_stiffness_matrix()
@@ -37,8 +37,8 @@ coords_trunk = np.stack([X_trunk.ravel(), Y_trunk.ravel()], axis=-1)
 # in this way I create a list will all sets of 2d cordinates
 diri = lambda x, y: 0 # (0) dirichlet boundary conditions to be used for the moment
 
-x_branch = np.linspace(0, 2, 20)
-y_branch = np.linspace(0, 2, 20)
+x_branch = np.linspace(-1, 1, 20)
+y_branch = np.linspace(-1, 1, 20)
 # dont need branch to be too large, a couple hundred points should word (to be checked!)
 X_branch, Y_branch = np.meshgrid(x_branch, y_branch, indexing="ij")
 coords_branch = np.stack([X_branch.ravel(), Y_branch.ravel()], axis=-1)

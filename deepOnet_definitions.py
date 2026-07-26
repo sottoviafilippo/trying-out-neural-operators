@@ -28,19 +28,19 @@ class deepOnet_v1(nn.Module):
         # for the moment I am using two hidden layers. To be corrected later if necessary
         self.branch_network = nn.Sequential(
             nn.Linear(self.function_discretization_size, self.N_nodes_branch),  
-            nn.ReLU(),        
+            nn.Sigmoid(),        
             nn.Linear(self.N_nodes_branch, self.N_nodes_branch),  
-            nn.ReLU(),   
+            nn.Sigmoid(),   
             nn.Linear(self.N_nodes_branch, self.latent_dimension)
         )
 
         self.trunk_network = nn.Sequential(
             nn.Linear(self.domain_dimension, self.N_nodes_trunk),  
-            nn.Tanh(),         
+            nn.Sigmoid(),         
             nn.Linear(self.N_nodes_trunk, self.N_nodes_trunk),  
-            nn.Tanh(),
+            nn.Sigmoid(),
             nn.Linear(self.N_nodes_trunk, self.N_nodes_trunk),  
-            nn.Tanh(),   
+            nn.Sigmoid(),   
             nn.Linear(self.N_nodes_trunk, self.latent_dimension)
         )
 
@@ -61,11 +61,13 @@ class deepOnet_v1(nn.Module):
         return torch.einsum("bl,tl->bt", branch_output, trunk_output)
 
 
-    def fit(self, num_epochs:int, branch_X, trunk_X, Y, print_progress = True):
+    def fit(self, num_epochs:int, branch_X, trunk_X, Y, branch_X_eval, trunk_X_eval, Y_eval, print_progress = True):
         # X, Y in the training dataset. 
         
         self.epochs = []
         self.losses = []
+        self.losses_eval = []
+        self.rel_errors_eval = []
 
         # First do some checks. Dimensions have to match, in particular the size of the array representing the input function itself
         # First check the branch network dimension
@@ -93,35 +95,54 @@ class deepOnet_v1(nn.Module):
             self.epochs.append(epoch + 1)
             self.losses.append(loss.item())
 
+            with torch.no_grad(): # I do not need to track gradients here
+                predictions_eval = self(branch_X_eval, trunk_X_eval)
+                loss_eval = self.criterion(predictions_eval, Y_eval)
+                rel_error_eval = torch.mean((predictions_eval - Y_eval)**2) / torch.mean(Y_eval**2)
+            self.losses_eval.append(loss_eval.item())
+            self.rel_errors_eval.append(rel_error_eval.item())
+
             if print_progress and (epoch + 1) % 100 == 0:
-                print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}")
+                print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}, Loss eval: {loss_eval.item():.4f}")
+
+                with torch.no_grad(): # check variations - is the model actually learning anything ?
+                    preds = self(branch_X, trunk_X)
+                    print("prediction std across samples:", preds.std(dim=0).mean().item())
+                    print("prediction std across points:", preds.std(dim=1).mean().item())
+                    print("Y std across samples:", Y.std(dim=0).mean().item())
+                    print("Y std across points:", Y.std(dim=1).mean().item())
 
 
-    def fit_from_npz(self, training_dataset:str, num_epochs:int, print_progress = True):
+    def fit_from_npz(self, training_dataset:str, num_epochs:int, eval_rel_size = 0.2, print_progress = True):
 
         """Fits the model using a training dataset stored in a .npz file"""
         training_data = np.load(training_dataset)
 
+        N_samples = training_data["f"].shape[0]
+        N_train = int(N_samples * (1 - eval_rel_size))
+
         coords_branch = training_data["coords_branch"]
         coords_trunk = training_data["coords_trunk"]
-        training_branch = training_data["f"]
-        training_Y = training_data["u"]
+        training_branch = training_data["f"][:N_train]
+        training_Y = training_data["u"][:N_train]
 
-        # this check is needed to ensure future reproducibility of the results
-        if coords_branch.any() != self.x_coords_for_branch.any():
-                    raise ValueError(
-                        f"Branch input mismatch! Function is not discretised on the same points as expected"
-                    )
+        eval_branch = training_data["f"][N_train:]
+        eval_Y = training_data["u"][N_train:]
 
+        # this check is to ensure future reproducibility of the results
+        if not np.array_equal(coords_branch, self.x_coords_for_branch):
+            raise ValueError("Branch input mismatch! Function is not discretised on the same points as expected")
 
         # before training I need to convert the data to torch objects
         branch_X = torch.from_numpy(training_branch).float()
         trunk_X  = torch.from_numpy(coords_trunk).float()
         Y        = torch.from_numpy(training_Y).float()
 
-        self.fit(num_epochs, branch_X, trunk_X, Y, print_progress=print_progress)
+        branch_X_eval = torch.from_numpy(eval_branch).float()
+        Y_eval        = torch.from_numpy(eval_Y).float()
 
-        pass
+        self.fit(num_epochs, branch_X, trunk_X, Y, branch_X_eval = branch_X_eval, trunk_X_eval = trunk_X, Y_eval = Y_eval, print_progress=print_progress)
+
 
     def map_function_to_output_at_points(self, f: Callable, points_for_evaluation):
 
@@ -135,3 +156,4 @@ class deepOnet_v1(nn.Module):
 # to do: implement train/eval split to prevent overfitting
 # to do: implement GPU usage
 # to do: mini-batching
+# to do: implement ReduceLROnPlateau for eval/train samples
