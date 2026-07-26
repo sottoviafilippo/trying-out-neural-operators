@@ -7,26 +7,28 @@ import numpy as np
 
 # note: many comments are pedagogical and pretty basic: written for myself while writing this class, for learning
 
-class deepOnet_Poisson(nn.Module):
-    """Defines and sets up a deepOnet, trained on solutions of the 2d Poisson equation"""
+class deepOnet_v1(nn.Module):
+    """Defines and sets up a deepOnet. first approach: trained on solutions of the 2d Poisson equation"""
     # (for the moment) the sampling points of the input functions are fixed
 
-    def __init__(self, function_discretization_size:int, N_nodes_branch:int, N_nodes_trunk:int, latent_dimension:int, domain_dimension:int = 2):
+    def __init__(self, x_coords_for_branch, N_nodes_branch:int, N_nodes_trunk:int, latent_dimension:int, domain_dimension:int = 2):
 
         super().__init__() # refers to nn.Module
 
         self.N_nodes_branch = N_nodes_branch
         self.N_nodes_trunk  = N_nodes_trunk
-        self.function_discretization_size = function_discretization_size # number of points at which the input function is evaluated BEFORE feeding it into the dOn
+        self.x_coords_for_branch = x_coords_for_branch
+        self.function_discretization_size = x_coords_for_branch.shape[0] # number of points at which the input function is evaluated BEFORE feeding it into the dOn
         self.latent_dimension = latent_dimension #size of the output of the trunk and branch network
         self.domain_dimension = domain_dimension # usually 2, since for the moment I am trying to solve the Poisson equation in 2d
+        # the latent dimension is called p in the 2021 paper by Lu Jin and Karniadakis
 
-        # don't use ReLU for physics-informed networks because second derivatives vanish
+        # don't use ReLU for physics-informed networks because second derivatives vanish. "in practice p is at least of the order of 10"
 
         # for the moment I am using two hidden layers. To be corrected later if necessary
         self.branch_network = nn.Sequential(
             nn.Linear(self.function_discretization_size, self.N_nodes_branch),  
-            nn.ReLU(),         
+            nn.ReLU(),        
             nn.Linear(self.N_nodes_branch, self.N_nodes_branch),  
             nn.ReLU(),   
             nn.Linear(self.N_nodes_branch, self.latent_dimension)
@@ -36,9 +38,13 @@ class deepOnet_Poisson(nn.Module):
             nn.Linear(self.domain_dimension, self.N_nodes_trunk),  
             nn.Tanh(),         
             nn.Linear(self.N_nodes_trunk, self.N_nodes_trunk),  
+            nn.Tanh(),
+            nn.Linear(self.N_nodes_trunk, self.N_nodes_trunk),  
             nn.Tanh(),   
             nn.Linear(self.N_nodes_trunk, self.latent_dimension)
         )
+
+        # in Lu Jin Karniadakis they have branch depth 2, trunk depth 3 as standard
 
         # If I had not subclassed nn.Module .parameters() would not be defined
         self.optimizer = optim.Adam(self.parameters(), lr=0.01)
@@ -96,14 +102,34 @@ class deepOnet_Poisson(nn.Module):
         """Fits the model using a training dataset stored in a .npz file"""
         training_data = np.load(training_dataset)
 
-        coords = training_data["coords"]
+        coords_branch = training_data["coords_branch"]
+        coords_trunk = training_data["coords_trunk"]
         training_branch = training_data["f"]
         training_Y = training_data["u"]
 
-        self.fit(num_epochs, training_branch, coords, training_Y, print_progress = print_progress)
+        # this check is needed to ensure future reproducibility of the results
+        if coords_branch.any() != self.x_coords_for_branch.any():
+                    raise ValueError(
+                        f"Branch input mismatch! Function is not discretised on the same points as expected"
+                    )
+
+
+        # before training I need to convert the data to torch objects
+        branch_X = torch.from_numpy(training_branch).float()
+        trunk_X  = torch.from_numpy(coords_trunk).float()
+        Y        = torch.from_numpy(training_Y).float()
+
+        self.fit(num_epochs, branch_X, trunk_X, Y, print_progress=print_progress)
 
         pass
 
+    def map_function_to_output_at_points(self, f: Callable, points_for_evaluation):
+
+        branch = np.array([f(x[0], x[1]) for x in self.x_coords_for_branch])
+        branch = torch.from_numpy(branch).float().unsqueeze(0)
+        # unsqueeze(0) turns (N_points,) into (1, N_points)
+
+        return self(branch, torch.from_numpy(points_for_evaluation).float())
 
 
 # to do: implement train/eval split to prevent overfitting
