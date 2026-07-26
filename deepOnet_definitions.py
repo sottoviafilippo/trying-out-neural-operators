@@ -7,9 +7,11 @@ import numpy as np
 
 # note: many comments are pedagogical and pretty basic: written for myself while writing this class, for learning
 
+
 class deepOnet_v1(nn.Module):
     """Defines and sets up a deepOnet. first approach: trained on solutions of the 2d Poisson equation"""
     # (for the moment) the sampling points of the input functions are fixed
+    # note: for the moment I am working on the [-1, 1] square. for general case better to normalize the coordinates
 
     def __init__(self, x_coords_for_branch, N_nodes_branch:int, N_nodes_trunk:int, latent_dimension:int, domain_dimension:int = 2):
 
@@ -36,11 +38,11 @@ class deepOnet_v1(nn.Module):
 
         self.trunk_network = nn.Sequential(
             nn.Linear(self.domain_dimension, self.N_nodes_trunk),  
-            nn.Sigmoid(),         
+            nn.Tanh(),         
             nn.Linear(self.N_nodes_trunk, self.N_nodes_trunk),  
-            nn.Sigmoid(),
+            nn.Tanh(),
             nn.Linear(self.N_nodes_trunk, self.N_nodes_trunk),  
-            nn.Sigmoid(),   
+            nn.Tanh(),   
             nn.Linear(self.N_nodes_trunk, self.latent_dimension)
         )
 
