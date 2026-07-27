@@ -161,4 +161,4 @@ class deepOnet_v1(nn.Module):
 # to do: implement GPU usage
 # to do: mini-batching
 # to do: implement ReduceLROnPlateau for eval/train samples
-# to do: fourrier embedded deeponets
+# to do: fourier embedded deeponets
