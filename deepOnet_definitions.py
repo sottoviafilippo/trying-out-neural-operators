@@ -175,7 +175,7 @@ class FourierEncoding(nn.Module):
     def forward(self, x):
         x_norm = (x - self.mins) / (self.maxs - self.mins)  # bring to (0,1)
         x_scaled = x_norm * 2. * torch.pi
-        return torch.cat([torch.sin(x_scaled), torch.cos(x_scaled)], dim=-1)
+        return torch.cat([torch.sin(x_scaled), torch.cos(x_scaled)], dim=-1) # concatenate output for all input x
 
 
 class deepOnet_fourier_embedded_v2(nn.Module):
@@ -197,8 +197,6 @@ class deepOnet_fourier_embedded_v2(nn.Module):
         self.latent_dimension = latent_dimension #size of the output of the trunk and branch network
         self.domain_dimension = domain_dimension # usually 2, since for the moment I am trying to solve the Poisson equation in 2d
         # the latent dimension is called p in the 2021 paper by Lu Jin and Karniadakis
-
-        # don't use ReLU for physics-informed networks because second derivatives vanish. "in practice p is at least of the order of 10"
 
         self.x_min = x_min
         self.x_max = x_max
@@ -231,7 +229,7 @@ class deepOnet_fourier_embedded_v2(nn.Module):
 
         # in Lu Jin Karniadakis they have branch depth 2, trunk depth 3 as standard
 
-        # If I had not subclassed nn.Module .parameters() would not be defined
+        # If I had not subclassed nn.Module, .parameters() would not be defined
         self.optimizer = optim.Adam(self.parameters(), lr=0.01)
         self.criterion = nn.MSELoss()
 
@@ -333,16 +331,17 @@ class deepOnet_fourier_embedded_v2(nn.Module):
             Y_eval        = torch.from_numpy(eval_Y).float().to(self.device)
     
             self.fit(num_epochs, branch_X, trunk_X, Y, branch_X_eval = branch_X_eval, trunk_X_eval = trunk_X, Y_eval = Y_eval, print_progress=print_progress)
+
     
     def map_function_to_output_at_points(self, f: Callable, points_for_evaluation):
 
         branch = np.array([f(x[0], x[1]) for x in self.x_coords_for_branch])
-        branch = torch.from_numpy(branch).float().unsqueeze(0)
+        branch = torch.from_numpy(branch).float().unsqueeze(0).to(self.device)
         # unsqueeze(0) turns (N_points,) into (1, N_points)
 
-        return self(branch, torch.from_numpy(points_for_evaluation).float())
+        return self(branch, torch.from_numpy(points_for_evaluation).float().to(self.device))
 
 
-# to do: implement GPU usage
+
 # to do: mini-batching
 # to do: implement ReduceLROnPlateau for eval/train samples
