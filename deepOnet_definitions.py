@@ -184,7 +184,7 @@ class deepOnet_fourier_embedded_v2(nn.Module):
     # note: for the moment I am working on the [-1, 1] square. for general case better to normalize the coordinates
 
 
-    def __init__(self, x_coords_for_branch, N_nodes_branch:int, N_nodes_trunk:int, latent_dimension:int, domain_dimension:int = 2, x_min = -1., x_max = 1., y_min = -1., y_max = 1.0):
+    def __init__(self, x_coords_for_branch, N_nodes_branch:int, N_nodes_trunk:int, latent_dimension:int, domain_dimension:int = 2, x_min = -1.0, x_max = 1.0, y_min = -1.0, y_max = 1.0):
 
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
                 
