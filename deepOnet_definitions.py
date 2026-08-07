@@ -161,20 +161,21 @@ class deepOnet_v1(nn.Module):
         return self(branch, torch.from_numpy(points_for_evaluation).float())
 
 
-class FourierEncoding(nn.Module, epsilon = 0.01):
+class FourierEncoding(nn.Module):
     """Normalizes each coordinate to (0,1) via its own (min, max), then maps
     to (sin, cos) pairs """
 
-    def __init__(self, mins, maxs):
+    def __init__(self, mins, maxs, epsilon = 0.01):
         super().__init__()
         mins = torch.as_tensor(mins, dtype=torch.float32)
         maxs = torch.as_tensor(maxs, dtype=torch.float32)
         self.register_buffer("mins", mins)
         self.register_buffer("maxs", maxs)
+        self.epsilon = epsilon
         
     def forward(self, x):
         x_norm = (x - self.mins) / (self.maxs - self.mins)  # bring to (0,1)
-        x_scaled = x_norm * (2. * torch.pi - epsilon)
+        x_scaled = x_norm * (2. * torch.pi - self.epsilon)
         return torch.cat([torch.sin(x_scaled), torch.cos(x_scaled)], dim=-1) # concatenate output for all input x
 
 
