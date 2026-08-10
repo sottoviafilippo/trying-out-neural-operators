@@ -346,3 +346,4 @@ class deepOnet_fourier_embedded_v2(nn.Module):
 
 # to do: mini-batching
 # to do: implement ReduceLROnPlateau for eval/train samples
+# to do: to improve convergence implement a scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau
