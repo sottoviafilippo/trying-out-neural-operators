@@ -51,7 +51,7 @@ class deepOnet_v1(nn.Module):
         # in Lu Jin Karniadakis they have branch depth 2, trunk depth 3 as standard
 
         # If I had not subclassed nn.Module .parameters() would not be defined
-        self.optimizer = optim.Adam(self.parameters(), lr=0.01)
+        self.optimizer = optim.Adam(self.parameters(), lr=0.001)
         self.criterion = nn.MSELoss()
 
         self.to(self.device) 
@@ -155,10 +155,10 @@ class deepOnet_v1(nn.Module):
     def map_function_to_output_at_points(self, f: Callable, points_for_evaluation):
 
         branch = np.array([f(x[0], x[1]) for x in self.x_coords_for_branch])
-        branch = torch.from_numpy(branch).float().unsqueeze(0)
+        branch = torch.from_numpy(branch).float().unsqueeze(0).to(self.device)
         # unsqueeze(0) turns (N_points,) into (1, N_points)
 
-        return self(branch, torch.from_numpy(points_for_evaluation).float())
+        return self(branch, torch.from_numpy(points_for_evaluation).float().to(self.device))
 
 
 class FourierEncoding(nn.Module):
@@ -231,7 +231,7 @@ class deepOnet_fourier_embedded_v2(nn.Module):
         # in Lu Jin Karniadakis they have branch depth 2, trunk depth 3 as standard
 
         # If I had not subclassed nn.Module, .parameters() would not be defined
-        self.optimizer = optim.Adam(self.parameters(), lr=0.01)
+        self.optimizer = optim.Adam(self.parameters(), lr=0.001)
         self.criterion = nn.MSELoss()
 
         self.to(self.device) 
