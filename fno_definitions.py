@@ -23,11 +23,11 @@ class FourierLayer(nn.Module):
         # same number of modes in both directions
         self.spectral_weight = nn.Parameter(torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat) * 0.02)
 
-        # local/skip path (pointwise linear, e.g. 1x1 conv). kernel_size = 1: only look at a single spatial location at a time
-        self.channel_mixing = nn.Conv2d(hidden_dimension, hidden_dimension, kernel_size=1)
+        # local/skip path (linear) 
+        self.channel_mixing = nn.Linear(hidden_dimension, hidden_dimension)
 
     def forward(self, x):
-        # Following (*), page 35
+        # Following (*), page 35. different structure compared to the paper, here channel last
         # FOR A REAL-VALUED SYSTEM rfft CAN BE USED TO SPEED UP THE CALCULATION: TO BE IMPLEMENTED
 
         # First do the FFT of the input tensor, in both directions
@@ -40,8 +40,8 @@ class FourierLayer(nn.Module):
         # Now select the lower n_modes modes, in both directions
         x_fft_selected = fft_x[:, Nx//2 - self.n_modes[0]//2 : Nx//2 + (self.n_modes[0] + 1)//2, Ny//2 - self.n_modes[1]//2 : Ny//2 + (self.n_modes[1] + 1)//2, :]
 
-        # output initialization (frequency domain)
-        out_fft = torch.zeros(x.size, dtype = torch.cfloat)
+        # output initialization (frequency domain). Need to add device = x.device for out_fft not to go back to cpu even if I am using mps
+        out_fft = torch.zeros(x.shape, dtype=torch.cfloat, device=x.device)
         # now ricombine over the channels (convolution across channels)
         out_fft[:, Nx//2 - self.n_modes[0]//2 : Nx//2 + (self.n_modes[0] + 1)//2, Ny//2 - self.n_modes[1]//2 : Ny//2 + (self.n_modes[1] + 1)//2, :] = torch.einsum('bxyi,ioxy->bxyo', x_fft_selected, self.spectral_weight)
         # now reshuffle to original order
