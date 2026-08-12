@@ -14,7 +14,7 @@ class FourierLayer(nn.Module):
     def __init__(self, hidden_dimension: int, n_modes: list):
         super().__init__()
 
-        #self.n_modes = n_modes
+        self.n_modes = n_modes
         #self.hidden_dimension = hidden_dimension
         # Nyquist-Shannon theorem: n_modes should not be > spatial res/2 
         
@@ -23,27 +23,33 @@ class FourierLayer(nn.Module):
         # same number of modes in both directions
         self.spectral_weight = nn.Parameter(torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat) * 0.02)
 
-        # local/skip path (pointwise linear, e.g. 1x1 conv)
+        # local/skip path (pointwise linear, e.g. 1x1 conv). kernel_size = 1: only look at a single spatial location at a time
         self.channel_mixing = nn.Conv2d(hidden_dimension, hidden_dimension, kernel_size=1)
 
     def forward(self, x):
         # Following (*), page 35
         # FOR A REAL-VALUED SYSTEM rfft CAN BE USED TO SPEED UP THE CALCULATION: TO BE IMPLEMENTED
 
-
+        # First do the FFT of the input tensor, in both directions
         fft_x = torch.fft.fftn(x, dim = (-3, -2))
         # implementation details: shuffle the order of the components so that the 0-mode is in the center
         fft_x = torch.fft.fftshift(fft_x, dim = (-3, -2))
-        Nx = ...
-        Ny = ...
+        Nx = x.shape[-3]
+        Ny = x.shape[-2]
 
-        x_fft_selected = x_fft[:, Nx//2 - n_modes//2,:]
+        # Now select the lower n_modes modes, in both directions
+        x_fft_selected = fft_x[:, Nx//2 - self.n_modes[0]//2 : Nx//2 + (self.n_modes[0] + 1)//2, Ny//2 - self.n_modes[1]//2 : Ny//2 + (self.n_modes[1] + 1)//2, :]
 
-        out_fft = ...
+        # output initialization (frequency domain)
+        out_fft = torch.zeros(x.size, dtype = torch.cfloat)
+        # now ricombine over the channels (convolution across channels)
+        out_fft[:, Nx//2 - self.n_modes[0]//2 : Nx//2 + (self.n_modes[0] + 1)//2, Ny//2 - self.n_modes[1]//2 : Ny//2 + (self.n_modes[1] + 1)//2, :] = torch.einsum('bxyi,ioxy->bxyo', x_fft_selected, self.spectral_weight)
+        # now reshuffle to original order
+        out_fft = torch.fft.ifftshift(out_fft, dim = (-3, -2))
 
-        spectral_convolution_out = torch.fft.fftn(out_fft, dim = (-3, -2))
+        spectral_convolution_out = torch.fft.ifftn(out_fft, dim = (-3, -2))
 
-        channel_mixing_out = 0 # TO DO 
+        channel_mixing_out = self.channel_mixing(x)
 
 
         return spectral_convolution_out + channel_mixing_out 
