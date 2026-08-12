@@ -5,26 +5,48 @@ from typing import Callable
 import numpy as np
 
 
-# following the concepts presented in https://arxiv.org/abs/2512.01421v2
+# following the concepts presented in https://arxiv.org/abs/2512.01421v2 (*)
+# also looking at https://arxiv.org/pdf/2010.08895 (**)
 
 
 class FourierLayer(nn.Module):
 
-    def __init__(self, hidden_dimension, n_modes):
+    def __init__(self, hidden_dimension: int, n_modes: list):
         super().__init__()
 
-        self.n_modes = n_modes
-        self.hidden_dimension = hidden_dimension
+        #self.n_modes = n_modes
+        #self.hidden_dimension = hidden_dimension
         # Nyquist-Shannon theorem: n_modes should not be > spatial res/2 
         
-        self.network = nn.Sequential(
-            # TO DO, fft and ifft
-        )
+        # the weights for the Fourier part
+        # n_modes appears twice because we are working on a 2d domain. For a 3d domain I would have , n_modes[0], n_modes[1], n_modes[2], ... etc.
+        # same number of modes in both directions
+        self.spectral_weight = nn.Parameter(torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat) * 0.02)
+
+        # local/skip path (pointwise linear, e.g. 1x1 conv)
+        self.channel_mixing = nn.Conv2d(hidden_dimension, hidden_dimension, kernel_size=1)
 
     def forward(self, x):
+        # Following (*), page 35
+        # FOR A REAL-VALUED SYSTEM rfft CAN BE USED TO SPEED UP THE CALCULATION: TO BE IMPLEMENTED
 
-        # TO DO 
-        return 0
+
+        fft_x = torch.fft.fftn(x, dim = (-3, -2))
+        # implementation details: shuffle the order of the components so that the 0-mode is in the center
+        fft_x = torch.fft.fftshift(fft_x, dim = (-3, -2))
+        Nx = ...
+        Ny = ...
+
+        x_fft_selected = x_fft[:, Nx//2 - n_modes//2,:]
+
+        out_fft = ...
+
+        spectral_convolution_out = torch.fft.fftn(out_fft, dim = (-3, -2))
+
+        channel_mixing_out = 0 # TO DO 
+
+
+        return spectral_convolution_out + channel_mixing_out 
 
 
 
@@ -46,9 +68,10 @@ class FNO_v1(nn.Module):
 
 
         self.network = nn.Sequential(
-            nn.Linear(self.input_dimension, self.hidden_dimension), # lifting
-            nn.GELU(),
-            FourierLayer(self.hidden_dimension, self.n_modes),
+            nn.Linear(self.input_dimension, self.hidden_dimension), # lifting, no activation function needed after lifting - direct to Fourier layer
+            FourierLayer(self.hidden_dimension, self.n_modes), # Fourier layer 1
+            nn.GELU(), # according to (*) GELU 'has been shown to work well in smooth operator learning tasks'
+            FourierLayer(self.hidden_dimension, self.n_modes), # Fourier layer 2
             nn.GELU(),
             nn.Linear(self.hidden_dimension, self.hidden_dimension), # projection layer 1
             nn.GELU(),
