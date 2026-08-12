@@ -10,37 +10,17 @@ import numpy as np
 
 class FourierLayer(nn.Module):
 
-    def __init__(self, n_modes):
+    def __init__(self, hidden_dimension, n_modes):
         super().__init__()
 
         self.n_modes = n_modes
+        self.hidden_dimension = hidden_dimension
         # Nyquist-Shannon theorem: n_modes should not be > spatial res/2 
         
-    def forward(self, x):
+        self.network = nn.Sequential(
+            # TO DO, fft and ifft
+        )
 
-        # TO DO 
-        return 0
-
-
-class LiftingLayer(nn.Module):
-
-    def __init__(self, hidden_dimension):
-        super().__init__()
-        self.hidden_dimension = hidden_dimension
-
-        
-    def forward(self, x):
-
-        # TO DO 
-        return 0
-
-
-class ProjectionLayer(nn.Module):
-
-    def __init__(self, n_modes):
-        super().__init__()
-
-        
     def forward(self, x):
 
         # TO DO 
@@ -53,7 +33,7 @@ class FNO_v1(nn.Module):
     # (for the moment) the sampling points of the input functions are fixed
     # note: for the moment I am working on the [-1, 1] square. for general case better to normalize the coordinates
 
-    def __init__(self,  n_modes, hidden_dimension, domain_dimension:int = 2):
+    def __init__(self,  n_modes, hidden_dimension, input_dimension = 1, output_dimension = 1, domain_dimension:int = 2):
 
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
@@ -61,16 +41,22 @@ class FNO_v1(nn.Module):
 
         self.n_modes = n_modes
         self.hidden_dimension = hidden_dimension
+        self.input_dimension  = input_dimension
+        self.output_dimension = output_dimension
 
 
         self.network = nn.Sequential(
-            LiftingLayer(self.hidden_dimension),
-            FourierLayer(self.n_modes),
-            ProjectionLayer
+            nn.Linear(self.input_dimension, self.hidden_dimension), # lifting
+            nn.GELU(),
+            FourierLayer(self.hidden_dimension, self.n_modes),
+            nn.GELU(),
+            nn.Linear(self.hidden_dimension, self.hidden_dimension), # projection layer 1
+            nn.GELU(),
+            nn.Linear(self.hidden_dimension, self.output_dimension) # projection layer 1
         )
 
 
-        # If I had not subclassed nn.Module .parameters() would not be defined
+        # Need to subclass nn.Module for .parameters() to be defined
         self.optimizer = optim.Adam(self.parameters(), lr=0.001)
         self.criterion = nn.MSELoss()
 
@@ -84,7 +70,7 @@ class FNO_v1(nn.Module):
 
 
     def fit(self, num_epochs:int, X, Y, X_eval, Y_eval, print_progress = True):
-        # X, Y in the training dataset. 
+        # X, Y in the training dataset 
 
         print("Y std across samples:", Y.std(dim=0).mean().item())
         print("Y std across points: ", Y.std(dim=1).mean().item())
@@ -133,28 +119,22 @@ class FNO_v1(nn.Module):
         N_samples = training_data["f"].shape[0]
         N_train = int(N_samples * (1 - eval_rel_size))
 
-        coords_branch = training_data["coords_branch"]
-        coords_trunk = training_data["coords_trunk"]
-        training_branch = training_data["f"][:N_train]
+        # X: input, Y: output
+        training_X = training_data["f"][:N_train]
         training_Y = training_data["u"][:N_train]
 
-        eval_branch = training_data["f"][N_train:]
+        eval_X = training_data["f"][N_train:]
         eval_Y = training_data["u"][N_train:]
 
-        # this check is to ensure future reproducibility of the results
-        if not np.array_equal(coords_branch, self.x_coords_for_branch):
-            raise ValueError("Branch input mismatch! Function is not discretised on the same points as expected")
-
         # before training I need to convert the data to torch objects
-        branch_X = torch.from_numpy(training_branch).float().to(self.device)
-        trunk_X  = torch.from_numpy(coords_trunk).float().to(self.device)
-        Y        = torch.from_numpy(training_Y).float().to(self.device)
+        X = torch.from_numpy(training_X).float().to(self.device)
+        Y = torch.from_numpy(training_Y).float().to(self.device)
 
-        # to device, drectly here
-        branch_X_eval = torch.from_numpy(eval_branch).float().to(self.device)
-        Y_eval        = torch.from_numpy(eval_Y).float().to(self.device)
+        # to device, directly here
+        X_eval = torch.from_numpy(eval_X).float().to(self.device)
+        Y_eval = torch.from_numpy(eval_Y).float().to(self.device)
 
-        self.fit(num_epochs, branch_X, trunk_X, Y, branch_X_eval = branch_X_eval, trunk_X_eval = trunk_X, Y_eval = Y_eval, print_progress=print_progress)
+        self.fit(num_epochs, X, Y, X_eval, Y_eval, print_progress=print_progress)
 
 
     def map_function_to_output_at_points(self, f: Callable, points_for_evaluation):
