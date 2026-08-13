@@ -51,8 +51,8 @@ class FourierLayer(nn.Module):
 
         channel_mixing_out = self.channel_mixing(x)
 
-
-        return spectral_convolution_out + channel_mixing_out 
+        # return the real part (GELU is only implemented for floating types)
+        return spectral_convolution_out.real + channel_mixing_out 
 
 
 
@@ -61,7 +61,8 @@ class FNO_v1(nn.Module):
     # (for the moment) the sampling points of the input functions are fixed
     # note: for the moment I am working on the [-1, 1] square. for general case better to normalize the coordinates
 
-    def __init__(self,  n_modes, hidden_dimension, input_dimension = 1, output_dimension = 1, domain_dimension:int = 2):
+    def __init__(self, n_modes, hidden_dimension, input_dimension = 1, output_dimension = 1):
+        # For the moment this only works for 2d problems
 
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
@@ -130,7 +131,7 @@ class FNO_v1(nn.Module):
             self.losses_eval.append(loss_eval.item())
             self.rel_errors_eval.append(rel_error_eval.item())
 
-            if print_progress and (epoch + 1) % 100 == 0:
+            if print_progress and (epoch + 1) % 10 == 0:
                 print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}, Loss eval: {loss_eval.item():.4f}")
 
                 with torch.no_grad(): # check variations - is the model actually learning anything ?
@@ -156,12 +157,13 @@ class FNO_v1(nn.Module):
         eval_Y = training_data["u"][N_train:]
 
         # before training I need to convert the data to torch objects
-        X_train = torch.from_numpy(training_X).float().to(self.device)
-        Y_train = torch.from_numpy(training_Y).float().to(self.device)
+        # unsqueeze(1) makes the X and Y shape to (N_samples, N_x, N_y, 1), as needed (1 because I am solving for scalar functions sofar)
+        X_train = torch.from_numpy(training_X).float().unsqueeze(-1).to(self.device)
+        Y_train = torch.from_numpy(training_Y).float().unsqueeze(-1).to(self.device)
 
         # to device, directly here
-        X_eval = torch.from_numpy(eval_X).float().to(self.device)
-        Y_eval = torch.from_numpy(eval_Y).float().to(self.device)
+        X_eval = torch.from_numpy(eval_X).float().unsqueeze(-1).to(self.device)
+        Y_eval = torch.from_numpy(eval_Y).float().unsqueeze(-1).to(self.device)
 
         self.fit(num_epochs, X_train, Y_train, X_eval, Y_eval, print_progress=print_progress)
 

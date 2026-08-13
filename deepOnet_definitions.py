@@ -23,6 +23,7 @@ class deepOnet_v1(nn.Module):
         self.N_nodes_trunk  = N_nodes_trunk
         self.x_coords_for_branch = x_coords_for_branch
         self.function_discretization_size = x_coords_for_branch.shape[0] # number of points at which the input function is evaluated BEFORE feeding it into the dOn
+        print("Function discretization size = ", self.function_discretization_size) # = N_x x N_y, check
         self.latent_dimension = latent_dimension #size of the output of the trunk and branch network
         self.domain_dimension = domain_dimension # usually 2, since for the moment I am trying to solve the Poisson equation in 2d
         # the latent dimension is called p in the 2021 paper by Lu Jin and Karniadakis
@@ -195,6 +196,7 @@ class deepOnet_fourier_embedded_v2(nn.Module):
         self.N_nodes_trunk  = N_nodes_trunk
         self.x_coords_for_branch = x_coords_for_branch
         self.function_discretization_size = x_coords_for_branch.shape[0] # number of points at which the input function is evaluated BEFORE feeding it into the dOn
+        print("Function discretization size = ", self.function_discretization_size) # = N_x x N_y, check
         self.latent_dimension = latent_dimension #size of the output of the trunk and branch network
         self.domain_dimension = domain_dimension # usually 2, since for the moment I am trying to solve the Poisson equation in 2d
         # the latent dimension is called p in the 2021 paper by Lu Jin and Karniadakis
