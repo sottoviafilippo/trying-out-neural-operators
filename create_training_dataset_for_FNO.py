@@ -25,14 +25,14 @@ def generate_source_function(num_modes:int=3, max_freq:int=4, max_amplitude = 1.
     
 
 
-x_trunk = np.linspace(-1, 1, 40)
-y_trunk = np.linspace(-1, 1, 40)
-mymesh = Mesh(x_trunk, y_trunk, verbose=True)
+xx = np.linspace(-1, 1, 64)
+yy = np.linspace(-1, 1, 64)
+mymesh = Mesh(xx, yy, verbose=True)
 mymesh.build_mass_matrix()
 mymesh.build_stiffness_matrix()
 # coordinates of mesh points 
-X_trunk, Y_trunk = np.meshgrid(x_trunk, y_trunk, indexing="ij")
-coords_trunk = np.stack([X_trunk.ravel(), Y_trunk.ravel()], axis=-1)
+
+coords = np.stack([xx.ravel(), yy.ravel()], axis=-1)
 # in this way I create a list will all sets of 2d cordinates
 diri = lambda x, y: 0 # (0) dirichlet boundary conditions to be used for the moment
 
@@ -48,33 +48,31 @@ to use (simple for the moment): random polynomials, random Fourier series
 """
 
 
-N_source_functions = 20000 # number of source functions for which we compute the solution
-N_points_trunk  = coords_trunk.shape[0]
-N_points_branch = coords_branch.shape[0]
+N_source_functions = 1000 # number of source functions for which we compute the solution
+N_points = coords.shape[0]
 
 #vectors to store the functions (evaluated at the grid) and the corresponding solutions
-f_all = np.zeros((N_source_functions, N_points_branch)) # discretization of the functions
-u_all = np.zeros((N_source_functions, N_points_trunk)) # will contain the desired output of the model
+f_all = np.zeros((N_source_functions, N_points)) # discretization of the functions
+u_all = np.zeros((N_source_functions, N_points)) # will contain the desired output of the model
 
 for i in range(N_source_functions):
     func = generate_source_function()
     res_finite_elements = mymesh.run_simulation_poisson_dirichlet(func, diri)
 
-    f_all[i] = func(X_branch, Y_branch).ravel()
+    f_all[i] = func(xx, yy).ravel()
     u_all[i] = np.asarray(res_finite_elements).ravel()
 
     if i%50 == 0:
         print(f"[{i+1}/{N_source_functions}] done")
 
-out_path = Path("data/dataset.npz")
+out_path = Path("data/dataset_for_fno.npz")
 out_path.parent.mkdir(parents=True, exist_ok=True)
 
 # save the dataset in the .npz file
 np.savez(out_path,
-    coords_branch = coords_branch, # (N_points_branch, 2)
-    coords_trunk  = coords_trunk,   # (N_points_trunk, 2)
-    f = f_all,          # (N_samples, N_points_branch)
-    u = u_all,          # (N_samples, N_points_trunk)
+    coords = coords, # (N_points, 2)
+    f = f_all,          # (N_samples, N_points)
+    u = u_all,          # (N_samples, N_points)
 )
 
 print(f"Saved at {out_path}, for coords_branch={coords_branch.shape}, f has shape {f_all.shape}, u has shape n{u_all.shape}")

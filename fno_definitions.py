@@ -156,14 +156,14 @@ class FNO_v1(nn.Module):
         eval_Y = training_data["u"][N_train:]
 
         # before training I need to convert the data to torch objects
-        X = torch.from_numpy(training_X).float().to(self.device)
-        Y = torch.from_numpy(training_Y).float().to(self.device)
+        X_train = torch.from_numpy(training_X).float().to(self.device)
+        Y_train = torch.from_numpy(training_Y).float().to(self.device)
 
         # to device, directly here
         X_eval = torch.from_numpy(eval_X).float().to(self.device)
         Y_eval = torch.from_numpy(eval_Y).float().to(self.device)
 
-        self.fit(num_epochs, X, Y, X_eval, Y_eval, print_progress=print_progress)
+        self.fit(num_epochs, X_train, Y_train, X_eval, Y_eval, print_progress=print_progress)
 
 
     def map_function_to_output_at_points(self, f: Callable, points_for_evaluation):
