@@ -11,6 +11,8 @@ import numpy as np
 
 class FourierLayer(nn.Module):
 
+    # see (*): in the literature the FourierLayer is more complex, with one additional skip connection
+
     def __init__(self, hidden_dimension: int, n_modes: list):
         super().__init__()
 
@@ -49,11 +51,47 @@ class FourierLayer(nn.Module):
 
         spectral_convolution_out = torch.fft.ifftn(out_fft, dim = (-3, -2))
 
-        channel_mixing_out = self.channel_mixing(x)
+        channel_mixing_out = self.channel_mixing(x) # skip connection
 
         # return the real part (GELU is only implemented for floating types)
         return spectral_convolution_out.real + channel_mixing_out 
 
+
+class FourierLayer_real(nn.Module):
+    # For real data, using rfftn for improved. Not using fftshift, also for better speed
+
+    def __init__(self, hidden_dimension: int, n_modes: list):
+        super().__init__()
+        self.n_modes = n_modes
+        # Nyquist-Shannon: n_modes[i] should not exceed spatial_res // 2
+
+        # rfftn only omits neg freqs along the last transformed dim, which here corresponds to the y-direction
+        # https://docs.pytorch.org/docs/2.13/generated/torch.fft.rfftn.html
+        # so one needs to separate weight blocks: one small positive kx and one small negative kx (wraparound), both with small ky
+        self.spectral_weight_pos = nn.Parameter(torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat) * 0.1)
+        self.spectral_weight_neg = nn.Parameter(torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat) * 0.1)
+
+        self.channel_mixing = nn.Linear(hidden_dimension, hidden_dimension)
+
+    def forward(self, x):
+        Nx = x.shape[-3]
+        Ny = x.shape[-2]
+        m0, m1 = self.n_modes
+
+        # real FFT: last transformed dim (-2) collapses to Ny//2 + 1 non-negative frequencies
+        fft_x = torch.fft.rfftn(x, dim=(-3, -2))
+
+        out_fft = torch.zeros(x.shape[0], Nx, Ny // 2 + 1, x.shape[-1],dtype=torch.cfloat, device=x.device)
+
+        # small positive kx, small ky
+        out_fft[:, :m0, :m1, :] = torch.einsum('bxyi,ioxy->bxyo', fft_x[:, :m0, :m1, :], self.spectral_weight_pos)
+        # small negative kx (wraps to the tail of the array), small ky
+        out_fft[:, -m0:, :m1, :] = torch.einsum('bxyi,ioxy->bxyo', fft_x[:, -m0:, :m1, :], self.spectral_weight_neg)
+
+        spectral_convolution_out = torch.fft.irfftn(out_fft, s=(Nx, Ny), dim=(-3, -2)) # Kl in (*) page 32
+        channel_mixing_out = self.channel_mixing(x) # Wl in (*) page 32
+
+        return spectral_convolution_out + channel_mixing_out # don't see spectral_convolution_out.real because it's already real 
 
 
 class FNO_v1(nn.Module):
@@ -61,7 +99,7 @@ class FNO_v1(nn.Module):
     # (for the moment) the sampling points of the input functions are fixed
     # note: for the moment I am working on the [-1, 1] square. for general case better to normalize the coordinates
 
-    def __init__(self, n_modes, hidden_dimension, input_dimension = 1, output_dimension = 1):
+    def __init__(self, n_modes, hidden_dimension, input_dimension = 1, output_dimension = 1, lr = 0.001):
         # For the moment this only works for 2d problems
 
         self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
@@ -69,16 +107,18 @@ class FNO_v1(nn.Module):
         super().__init__() # refers to nn.Module
 
         self.n_modes = n_modes
-        self.hidden_dimension = hidden_dimension
+        self.hidden_dimension = hidden_dimension # the authors of (*) recommend starting with a number of hidden channels 16-32
         self.input_dimension  = input_dimension
         self.output_dimension = output_dimension
 
 
         self.network = nn.Sequential(
             nn.Linear(self.input_dimension, self.hidden_dimension), # lifting, no activation function needed after lifting - direct to Fourier layer
-            FourierLayer(self.hidden_dimension, self.n_modes), # Fourier layer 1
+            FourierLayer_real(self.hidden_dimension, self.n_modes), # Fourier layer 1
             nn.GELU(), # according to (*) GELU 'has been shown to work well in smooth operator learning tasks'
-            FourierLayer(self.hidden_dimension, self.n_modes), # Fourier layer 2
+            FourierLayer_real(self.hidden_dimension, self.n_modes), # Fourier layer 2
+            nn.GELU(),
+            FourierLayer_real(self.hidden_dimension, self.n_modes), # Fourier layer 3. According to (*) advisable to start with 3-6 layers and then eventually increase
             nn.GELU(),
             nn.Linear(self.hidden_dimension, self.hidden_dimension), # projection layer 1
             nn.GELU(),
@@ -87,7 +127,7 @@ class FNO_v1(nn.Module):
 
 
         # Need to subclass nn.Module for .parameters() to be defined
-        self.optimizer = optim.Adam(self.parameters(), lr=0.001)
+        self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.criterion = nn.MSELoss()
 
         self.to(self.device) 
