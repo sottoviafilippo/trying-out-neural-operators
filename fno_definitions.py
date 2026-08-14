@@ -23,7 +23,7 @@ class FourierLayer(nn.Module):
         # the weights for the Fourier part
         # n_modes appears twice because we are working on a 2d domain. For a 3d domain I would have , n_modes[0], n_modes[1], n_modes[2], ... etc.
         # same number of modes in both directions
-        self.spectral_weight = nn.Parameter(torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat) * 0.02)
+        self.spectral_weight = nn.Parameter(torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat) * 0.05)
 
         # local/skip path (linear) 
         self.channel_mixing = nn.Linear(hidden_dimension, hidden_dimension)
