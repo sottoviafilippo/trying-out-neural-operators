@@ -53,6 +53,7 @@ class deepOnet_v1(nn.Module):
 
         # If I had not subclassed nn.Module .parameters() would not be defined
         self.optimizer = optim.Adam(self.parameters(), lr=0.001)
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=500, gamma=0.5)
         self.criterion = nn.MSELoss()
 
         self.to(self.device) 
@@ -99,6 +100,7 @@ class deepOnet_v1(nn.Module):
             self.optimizer.zero_grad() # otherwise the gradients would be added to the previously computed ones
             loss.backward() # computes the gradient of the loss compute on the neural network, via model(X)
             self.optimizer.step() # updates the weights
+            self.scheduler.step()
 
             # Track the loss history
             self.epochs.append(epoch + 1)
@@ -234,6 +236,7 @@ class deepOnet_fourier_embedded_v2(nn.Module):
 
         # If I had not subclassed nn.Module, .parameters() would not be defined
         self.optimizer = optim.Adam(self.parameters(), lr=0.001)
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=500, gamma=0.5)
         self.criterion = nn.MSELoss()
 
         self.to(self.device) 
@@ -282,6 +285,7 @@ class deepOnet_fourier_embedded_v2(nn.Module):
             self.optimizer.zero_grad() # otherwise the gradients would be added to the previously computed ones
             loss.backward() # computes the gradient of the loss compute on the neural network, via model(X)
             self.optimizer.step() # updates the weights
+            self.scheduler.step()
 
             # Track the loss history
             self.epochs.append(epoch + 1)
