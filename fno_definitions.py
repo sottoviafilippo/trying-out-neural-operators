@@ -129,7 +129,7 @@ class FNO_v1(nn.Module):
         # Need to subclass nn.Module for .parameters() to be defined
         #self.optimizer = optim.Adam(self.parameters(), lr=lr, weight_decay = 1e-4)
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
-        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=50, gamma=0.5)
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.5)
 
         self.criterion = nn.MSELoss()
 
