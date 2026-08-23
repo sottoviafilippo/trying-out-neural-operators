@@ -25,8 +25,8 @@ def generate_source_function(num_modes:int=3, max_freq:int=4, max_amplitude = 1.
     return source_function
     
 
-N_points_x = 64
-N_points_y = 64
+N_points_x = 48
+N_points_y = 48
 
 xx = np.linspace(-1, 1, N_points_x)
 yy = np.linspace(-1, 1, N_points_y)
@@ -35,8 +35,9 @@ mymesh.build_mass_matrix()
 mymesh.build_stiffness_matrix()
 # coordinates of mesh points 
 
-coords = np.stack([xx.ravel(), yy.ravel()], axis=-1)
-# in this way I create a list will all sets of 2d cordinates
+# 2D grid of coordinates, matching the (N_points_x, N_points_y) layout of f_all/u_all
+X, Y = np.meshgrid(xx, yy, indexing="ij")  # each shape (N_points_x, N_points_y)
+
 diri = lambda x, y: 0 # (0) dirichlet boundary conditions to be used for the moment
 
 
@@ -44,7 +45,6 @@ diri = lambda x, y: 0 # (0) dirichlet boundary conditions to be used for the mom
 strategy: prioritize sample diversity to spatial distribution
 to use (simple for the moment): random polynomials, random Fourier series
 """
-
 
 N_source_functions = 1000 # number of source functions for which we compute the solution
 
@@ -62,14 +62,19 @@ for i in tqdm(range(N_source_functions)):
     u_all[i] = np.asarray(res_finite_elements)
 
 
+# build the 3-channel FNO input: (x, y, f(x,y)) at every grid point
+# numpy.broadcast_to(array, shape, subok=False): broadcast an array to a new shape https://numpy.org/devdocs/reference/generated/numpy.broadcast_to.html
+X_b = np.broadcast_to(X, (N_source_functions, N_points_x, N_points_y))
+Y_b = np.broadcast_to(Y, (N_source_functions, N_points_x, N_points_y))
+# now stack X, Y, and the function values together, along the last dimension
+input_all = np.stack([X_b, Y_b, f_all], axis=-1)  # (N_samples, N_points_x, N_points_y, 3)
+
 out_path = Path("data/dataset_for_fno.npz")
 out_path.parent.mkdir(parents=True, exist_ok=True)
 
-# save the dataset in the .npz file
 np.savez(out_path,
-    coords = coords, # (N_points, 2)
-    f = f_all,          # (N_samples, N_points)
-    u = u_all,          # (N_samples, N_points)
+    input = input_all,  # (N_samples, N_points_x, N_points_y, 3) -> channels: x, y, f
+    u = u_all,          # (N_samples, N_points_x, N_points_y)
 )
 
 print(f"Saved at {out_path}, f has shape {f_all.shape}, u has shape n{u_all.shape}")

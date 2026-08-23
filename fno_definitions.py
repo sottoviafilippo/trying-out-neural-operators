@@ -100,18 +100,19 @@ class FNO_v1(nn.Module):
     # (for the moment) the sampling points of the input functions are fixed
     # note: for the moment I am working on the [-1, 1] square. for general case better to normalize the coordinates
 
-    def __init__(self, n_modes, hidden_dimension, input_dimension = 1, output_dimension = 1, lr = 0.001):
+    def __init__(self, n_modes, hidden_dimension, input_dimension = 3, output_dimension = 1, lr = 0.004):
         # For the moment this only works with 2d problems
+        # default input dimension is 3: x, y, function_value
+        # default output dimension is 1 since we are outputting the values of a scalar function at given cooordinates
 
         super().__init__() # refers to nn.Module
 
-        self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+        self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu") # use gpu if possible (mac)
 
         self.n_modes = n_modes
         self.hidden_dimension = hidden_dimension # the authors of (*) recommend starting with a number of hidden channels 16-32
         self.input_dimension  = input_dimension
         self.output_dimension = output_dimension
-
 
         self.network = nn.Sequential(
             nn.Linear(self.input_dimension, self.hidden_dimension), # lifting, no activation function needed after lifting - direct to Fourier layer
@@ -126,10 +127,10 @@ class FNO_v1(nn.Module):
             nn.Linear(self.hidden_dimension, self.output_dimension) # projection layer 1
         )
 
-
         # Need to subclass nn.Module for .parameters() to be defined
+        #self.optimizer = optim.Adam(self.parameters(), lr=lr, weight_decay = 1e-4)
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
-        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=100, gamma=0.5)
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=50, gamma=0.5)
 
         self.criterion = nn.MSELoss()
 
@@ -190,23 +191,24 @@ class FNO_v1(nn.Module):
         """Fits the model using a training dataset stored in a .npz file"""
         training_data = np.load(training_dataset)
 
-        N_samples = training_data["f"].shape[0]
+        N_samples = training_data["input"].shape[0]
         N_train = int(N_samples * (1 - eval_rel_size))
 
         # X: input, Y: output
-        training_X = training_data["f"][:N_train]
+        training_X = training_data["input"][:N_train]
         training_Y = training_data["u"][:N_train]
 
-        eval_X = training_data["f"][N_train:]
+        eval_X = training_data["input"][N_train:]
         eval_Y = training_data["u"][N_train:]
 
         # before training I need to convert the data to torch objects
-        # unsqueeze(1) makes the X and Y shape to (N_samples, N_x, N_y, 1), as needed (1 because I am solving for scalar functions sofar)
-        X_train = torch.from_numpy(training_X).float().unsqueeze(-1).to(self.device)
+        # unsqueeze(1) makes the Y shape to (N_samples, N_x, N_y, 1), as needed (1 because I am solving for scalar functions sofar)
+        # with 3 dims (x, y, func_value), on the other hand, X already has the right dimensions
+        X_train = torch.from_numpy(training_X).float().to(self.device)
         Y_train = torch.from_numpy(training_Y).float().unsqueeze(-1).to(self.device)
 
         # to device, directly here
-        X_eval = torch.from_numpy(eval_X).float().unsqueeze(-1).to(self.device)
+        X_eval = torch.from_numpy(eval_X).float().to(self.device)
         Y_eval = torch.from_numpy(eval_Y).float().unsqueeze(-1).to(self.device)
 
         self.fit(num_epochs, X_train, Y_train, X_eval, Y_eval, print_progress=print_progress)
