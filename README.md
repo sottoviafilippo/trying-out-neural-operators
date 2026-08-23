@@ -9,4 +9,4 @@
 - `create_training_dataset_for_FNO.py` creates and saves a training dataset for the FNO classes (with solutions of the 2d Poisson equations as a function of the source term).
 - `create_dataset_FNO_neuralop.py` creates and saves a training dataset to be using when training an FNO from the neuraloperator library. (https://github.com/neuraloperator/neuraloperator)
 
-Sofar DeepONets give satisfying results, while the FNO that I coded is slow and converges, for every function, to some kind of constant value. To be fixed, work in progress.
+Sofar DeepONets give satisfying results, while the FNO that I coded is slow and does not really produce satisfying results. Work in progress. 
