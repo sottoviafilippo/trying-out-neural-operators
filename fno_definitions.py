@@ -143,7 +143,7 @@ class FNO_v1(nn.Module):
         return self.network(x)
 
 
-    def fit(self, num_epochs:int, X, Y, X_eval, Y_eval, print_progress = True):
+    def fit(self, num_epochs:int, X, Y, X_eval, Y_eval, batch_size = 32, print_progress = True):
         # X, Y in the training dataset 
 
         print("Y std across samples:", Y.std(dim=0).mean().item())
@@ -154,20 +154,34 @@ class FNO_v1(nn.Module):
         self.losses_eval = []
         self.rel_errors_eval = []
 
+        N = X.shape[0] # number of samples in training dataset
 
         for epoch in range(num_epochs):
-    
-            predictions = self(X)  # __call__ "does some bookkeeping" and calls the previously defined self.forward()
-            loss = self.criterion(predictions, Y)
 
-            self.optimizer.zero_grad() # otherwise the gradients would be added to the previously computed ones
-            loss.backward() # computes the gradient of the loss compute on the neural network, via model(X)
-            self.optimizer.step() # updates the weights
+            # first shuffle indices to prepare the minibatches
+            perm = torch.randperm(N, device=self.device)
+            epoch_loss = 0.0
+
+            for i in range(0, N, batch_size): # cut up the training data in slices of size batch_size 
+                idx = perm[i:i+batch_size]
+                X_batch = X[idx]
+                Y_batch = Y[idx]
+
+                predictions_batch = self(X_batch)
+                loss_batch = self.criterion(predictions_batch, Y_batch)
+
+                self.optimizer.zero_grad()
+                loss_batch.backward()
+                self.optimizer.step() # update the weights
+
+                epoch_loss += loss_batch.item() * X_batch.shape[0]
+    
             self.scheduler.step()
+            epoch_loss = epoch_loss / N
 
             # Track the loss history
             self.epochs.append(epoch + 1)
-            self.losses.append(loss.item())
+            self.losses.append(epoch_loss)
 
             with torch.no_grad(): # I do not need to track gradients here
                 predictions_eval = self(X_eval)
@@ -177,7 +191,7 @@ class FNO_v1(nn.Module):
             self.rel_errors_eval.append(rel_error_eval.item())
 
             if print_progress and (epoch + 1) % 10 == 0:
-                print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}, Loss eval: {loss_eval.item():.4f}")
+                print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {epoch_loss:.4f}, Loss eval: {loss_eval.item():.4f}")
 
                 with torch.no_grad(): # check variations - is the model actually learning anything ?
                     preds = self(X)
