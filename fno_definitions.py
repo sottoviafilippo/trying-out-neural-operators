@@ -30,7 +30,6 @@ class FourierLayer(nn.Module):
 
     def forward(self, x):
         # Following (*), page 35. different structure compared to the paper, here channel last
-        # FOR A REAL-VALUED SYSTEM rfft CAN BE USED TO SPEED UP THE CALCULATION: TO BE IMPLEMENTED
 
         # First do the FFT of the input tensor, in both directions
         fft_x = torch.fft.fftn(x, dim = (-3, -2))
@@ -228,8 +227,15 @@ class FNO_v1(nn.Module):
         self.fit(num_epochs, X_train, Y_train, X_eval, Y_eval, print_progress=print_progress)
 
 
-    def map_function_to_output_at_points(self, f: Callable, points_for_evaluation):
+    def map_function_to_output_at_points(self, f: Callable, X: np.ndarray, Y: np.ndarray):
+        # X, Y: from np.meshgrid
+        F = f(X, Y)
 
-        # TO DO
+        grid_input = np.stack([X, Y, F], axis=-1)  # (Nx, Ny, 3)
+        grid_input = torch.from_numpy(grid_input).float().unsqueeze(0).to(self.device)  # dimensions: (1, Nx, Ny, 3)
 
-        return 0
+        with torch.no_grad():
+            grid_output = self(grid_input).squeeze(0).squeeze(-1).cpu().numpy()  
+
+        return grid_output
+
