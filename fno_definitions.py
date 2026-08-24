@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from typing import Callable
 import numpy as np
-
+from neuralop.training import AdamW
 
 # following the concepts presented in https://arxiv.org/abs/2512.01421v2 (*)
 # also looking at https://arxiv.org/pdf/2010.08895 (**) (original FNO paper)
@@ -127,9 +127,12 @@ class FNO_v1(nn.Module):
         )
 
         # Need to subclass nn.Module for .parameters() to be defined
+        
         #self.optimizer = optim.Adam(self.parameters(), lr=lr, weight_decay = 1e-4)
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.5)
+        """self.optimizer = AdamW(self.parameters(), lr=lr, weight_decay=1e-4)
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=30) # CosineAnnealing: smooth decay of the learning rate"""
 
         self.criterion = nn.MSELoss()
 
@@ -238,4 +241,3 @@ class FNO_v1(nn.Module):
             grid_output = self(grid_input).squeeze(0).squeeze(-1).cpu().numpy()  
 
         return grid_output
-
