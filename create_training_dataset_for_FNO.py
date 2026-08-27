@@ -46,7 +46,7 @@ strategy: prioritize sample diversity to spatial distribution
 to use (simple for the moment): random polynomials, random Fourier series
 """
 
-N_source_functions = 1000 # number of source functions for which we compute the solution
+N_source_functions = 2000 # number of source functions for which we compute the solution
 
 print(N_points_x, N_points_y)
 

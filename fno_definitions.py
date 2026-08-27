@@ -130,7 +130,7 @@ class FNO_v1(nn.Module):
         
         #self.optimizer = optim.Adam(self.parameters(), lr=lr, weight_decay = 1e-4)
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
-        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.5)
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=20, gamma=0.5)
         """self.optimizer = AdamW(self.parameters(), lr=lr, weight_decay=1e-4)
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=30) # CosineAnnealing: smooth decay of the learning rate"""
 
@@ -204,7 +204,8 @@ class FNO_v1(nn.Module):
 
     def fit_from_npz(self, training_dataset:str, num_epochs:int, eval_rel_size = 0.2, print_progress = True):
 
-        """Fits the model using a training dataset stored in a .npz file"""
+        """Fits the model using a training dataset stored in a .npz file. Normalizes data before using it"""
+
         training_data = np.load(training_dataset)
 
         N_samples = training_data["input"].shape[0]
@@ -213,9 +214,21 @@ class FNO_v1(nn.Module):
         # X: input, Y: output
         training_X = training_data["input"][:N_train]
         training_Y = training_data["u"][:N_train]
-
         eval_X = training_data["input"][N_train:]
         eval_Y = training_data["u"][N_train:]
+
+        self.X_mean = training_X.mean(axis=(0, 1, 2), keepdims=True)  # shape (1,1,1,C)
+        self.X_std  = training_X.std(axis=(0, 1, 2), keepdims=True) + 1e-8
+
+        self.Y_mean = training_Y.mean()
+        self.Y_std  = training_Y.std() + 1e-9 # add small const to prevent risk due to eventual constant channel
+        # for the moment Y is scalar output, so a single global mean/std is fine
+
+        # apply normalization
+        training_X = (training_X - self.X_mean) / self.X_std
+        training_Y = (training_Y - self.Y_mean) / self.Y_std
+        eval_X = (eval_X - self.X_mean) / self.X_std
+        eval_Y = (eval_Y - self.Y_mean) / self.Y_std
 
         # before training I need to convert the data to torch objects
         # unsqueeze(1) makes the Y shape to (N_samples, N_x, N_y, 1), as needed (1 because I am solving for scalar functions sofar)
@@ -235,9 +248,11 @@ class FNO_v1(nn.Module):
         F = f(X, Y)
 
         grid_input = np.stack([X, Y, F], axis=-1)  # (Nx, Ny, 3)
+        grid_input = (grid_input - self.X_mean.squeeze(0)) / self.X_std.squeeze(0) # normalize data: the model is trained on normalized data
         grid_input = torch.from_numpy(grid_input).float().unsqueeze(0).to(self.device)  # dimensions: (1, Nx, Ny, 3)
 
         with torch.no_grad():
             grid_output = self(grid_input).squeeze(0).squeeze(-1).cpu().numpy()  
 
+        grid_output = grid_output * self.Y_std + self.Y_mean # need to go back to unnormalized output
         return grid_output
