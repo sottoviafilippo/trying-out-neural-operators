@@ -2,6 +2,7 @@ import numpy as np
 from FFEM_building_blocks import Mesh
 from pathlib import Path
 
+"""creates training dataset for training deepONet"""
 
 def generate_source_function(num_modes:int=3, max_freq:int=4, max_amplitude = 1.):
     """
