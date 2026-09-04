@@ -6,7 +6,7 @@ import numpy as np
 
 
 # note: many comments are pedagogical and pretty basic: written for myself while writing this class, for learning
-
+# a reference: arXiv:1910.03193v3
 
 class deepOnet_v1(nn.Module):
     """Defines and sets up a deepOnet. first approach: trained on solutions of the 2d Poisson equation"""
@@ -19,7 +19,7 @@ class deepOnet_v1(nn.Module):
 
         super().__init__() # refers to nn.Module
 
-        self.N_nodes_branch = N_nodes_branch
+        self.N_nodes_branch = N_nodes_branch # size of the hidden layers
         self.N_nodes_trunk  = N_nodes_trunk
         self.x_coords_for_branch = x_coords_for_branch
         self.function_discretization_size = x_coords_for_branch.shape[0] # number of points at which the input function is evaluated BEFORE feeding it into the dOn
