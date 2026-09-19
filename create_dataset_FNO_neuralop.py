@@ -38,8 +38,8 @@ X, Y = np.meshgrid(xx, yy, indexing="ij")  # each shape (N_points_x, N_points_y)
 
 diri = lambda x, y: 0  # dirichlet boundary conditions
 
-N_samples = 2000
-N_train = 1600  # rest goes to test
+N_samples = 5000
+N_train = 4000  # rest goes to test
 
 print(N_points_x, N_points_y)
 

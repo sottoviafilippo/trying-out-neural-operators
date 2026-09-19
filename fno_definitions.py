@@ -23,7 +23,7 @@ class FourierLayer(nn.Module):
         # the weights for the Fourier part
         # n_modes appears twice because we are working on a 2d domain. For a 3d domain I would have , n_modes[0], n_modes[1], n_modes[2], ... etc.
         # same number of modes in both directions
-        self.spectral_weight = nn.Parameter(torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat) / hidden_dimension**2)
+        self.spectral_weight = nn.Parameter((torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat)) * (1./hidden_dimension)**0.5)
 
         # local/skip path (linear) 
         self.channel_mixing = nn.Linear(hidden_dimension, hidden_dimension)
@@ -67,9 +67,8 @@ class FourierLayer_real(nn.Module):
         # rfftn only omits neg freqs along the last transformed dim, which here corresponds to the y-direction
         # https://docs.pytorch.org/docs/2.13/generated/torch.fft.rfftn.html
         # so one needs to separate weight blocks: one small positive kx and one small negative kx (wraparound), both with small ky
-        self.spectral_weight_pos = nn.Parameter(torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat) / hidden_dimension**2) 
-        # the scale factor would be 1/(in_channel * out_channel) , here it reduces to (1./hidden_dimension)**2
-        self.spectral_weight_neg = nn.Parameter(torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat) / hidden_dimension**2)
+        self.spectral_weight_pos = nn.Parameter(torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat) * (1./hidden_dimension)**0.5)
+        self.spectral_weight_neg = nn.Parameter(torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat)* (1./hidden_dimension)**0.5)
 
         self.channel_mixing = nn.Linear(hidden_dimension, hidden_dimension)
 
