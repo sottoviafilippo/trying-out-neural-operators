@@ -9,6 +9,29 @@ from neuralop.training import AdamW
 # also looking at https://arxiv.org/pdf/2010.08895 (**) (original FNO paper)
 
 
+
+
+def grad(u):
+    # batch, X, Y, features
+
+    d_x_u = u[:, 1:, :, :] - u[:, :-1, :, :]
+    d_y_u = u[:, :, 1:, :] - u[:, :, :-1, :]
+
+    return d_x_u, d_y_u
+
+
+def h1loss(pred, target, eps = 1e-8):
+    # a coarse implementation of the h1loss
+
+    # flatten(1) collapses everything after batch axis
+    diff_l2_rel = torch.norm((pred - target).flatten(1), dim = 1) / (torch.norm(target.flatten(1)) + eps)
+    dpx, dpy = grad(pred)
+    dtx, dty = grad(target)
+    diff_h1_rel = (torch.norm((dpx - dtx).flatten(1), dim = 1) + torch.norm((dpy - dty).flatten(1), dim = 1)) / (torch.norm(dtx.flatten(1), dim = 1) + torch.norm(dty.flatten(1), dim = 1) + eps)
+
+    return (diff_l2_rel + diff_h1_rel).mean()
+
+
 class FourierLayer(nn.Module):
 
     # see (*): in the literature the FourierLayer is more complex, with one additional skip connection
@@ -98,7 +121,7 @@ class FNO_v1(nn.Module):
     # (for the moment) the sampling points of the input functions are fixed
     # note: for the moment I am working on the [-1, 1] square. for general case better to normalize the coordinates
 
-    def __init__(self, n_modes, hidden_dimension, input_dimension = 3, output_dimension = 1, lr = 0.004):
+    def __init__(self, n_modes, hidden_dimension, input_dimension = 3, output_dimension = 1, lr = 0.004, loss_choice = "h1"):
         # For the moment this only works with 2d problems
         # default input dimension is 3: x, y, function_value
         # default output dimension is 1 since we are outputting the values of a scalar function at given cooordinates
@@ -133,7 +156,12 @@ class FNO_v1(nn.Module):
         """self.optimizer = AdamW(self.parameters(), lr=lr, weight_decay=1e-4)
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=30) # CosineAnnealing: smooth decay of the learning rate"""
 
-        self.criterion = nn.MSELoss()
+        if loss_choice == "h1":
+            self.criterion = h1loss
+        elif loss_choice == "mse":
+            self.criterion = nn.MSELoss()
+        else:
+            raise ValueError(f"unknown loss_choice: {loss_choice!r}")
 
         self.to(self.device) 
 
