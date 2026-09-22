@@ -24,7 +24,7 @@ def h1loss(pred, target, eps = 1e-8):
     # a coarse implementation of the h1loss
 
     # flatten(1) collapses everything after batch axis
-    diff_l2_rel = torch.norm((pred - target).flatten(1), dim = 1) / (torch.norm(target.flatten(1)) + eps)
+    diff_l2_rel = torch.norm((pred - target).flatten(1), dim = 1) / (torch.norm(target.flatten(1), dim = 1) + eps)
     dpx, dpy = grad(pred)
     dtx, dty = grad(target)
     diff_h1_rel = (torch.norm((dpx - dtx).flatten(1), dim = 1) + torch.norm((dpy - dty).flatten(1), dim = 1)) / (torch.norm(dtx.flatten(1), dim = 1) + torch.norm(dty.flatten(1), dim = 1) + eps)
