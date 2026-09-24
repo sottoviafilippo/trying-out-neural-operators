@@ -152,9 +152,10 @@ class FNO_v1(nn.Module):
         
         #self.optimizer = optim.Adam(self.parameters(), lr=lr, weight_decay = 1e-4)
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
-        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=20, gamma=0.5)
+        #self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=20, gamma=0.5)
         """self.optimizer = AdamW(self.parameters(), lr=lr, weight_decay=1e-4)
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=30) # CosineAnnealing: smooth decay of the learning rate"""
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=0.5, patience=5, threshold=1e-4, min_lr=1e-6)
 
         if loss_choice == "h1":
             self.criterion = h1loss
@@ -205,7 +206,7 @@ class FNO_v1(nn.Module):
 
                 epoch_loss += loss_batch.item() * X_batch.shape[0]
     
-            self.scheduler.step()
+            
             epoch_loss = epoch_loss / N
 
             # Track the loss history
@@ -218,6 +219,8 @@ class FNO_v1(nn.Module):
                 rel_error_eval = torch.mean((predictions_eval - Y_eval)**2) / torch.mean(Y_eval**2)
             self.losses_eval.append(loss_eval.item())
             self.rel_errors_eval.append(rel_error_eval.item())
+
+            self.scheduler.step(loss_eval.item()) #loss_eval.item() is the metric for ReduceLROnPlateau
 
             if print_progress and (epoch + 1) % 10 == 0:
                 print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {epoch_loss:.4f}, Loss eval: {loss_eval.item():.4f}")
