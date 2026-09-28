@@ -49,7 +49,12 @@ class FourierLayer(nn.Module):
         self.spectral_weight = nn.Parameter((torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat)) * (1./hidden_dimension)**0.5)
 
         # local/skip path (linear) 
-        self.channel_mixing = nn.Linear(hidden_dimension, hidden_dimension)
+        #self.channel_mixing = nn.Linear(hidden_dimension, hidden_dimension)
+        # if self.channel_mixing is commented: I am using a per-channel affine instead
+
+        self.channel_weight = nn.Parameter(torch.ones(hidden_dimension))
+        self.channel_bias = nn.Parameter(torch.zeros(hidden_dimension))
+
 
     def forward(self, x):
         # Following (*), page 35. different structure compared to the paper, here channel last
@@ -73,10 +78,14 @@ class FourierLayer(nn.Module):
 
         spectral_convolution_out = torch.fft.ifftn(out_fft, dim = (-3, -2))
 
-        channel_mixing_out = self.channel_mixing(x) # skip connection
+        # choose one: either channel mixing or per-channel affine
+        #channel_mixing_out = self.channel_mixing(x) # skip connection
 
+        per_channel_affine_out = x * self.channel_weight + self.channel_bias
         # return the real part (GELU is only implemented for floating types)
-        return spectral_convolution_out.real + channel_mixing_out 
+        #return spectral_convolution_out.real + channel_mixing_out 
+        return spectral_convolution_out.real + per_channel_affine_out
+
 
 
 class FourierLayer_real(nn.Module):
@@ -93,7 +102,11 @@ class FourierLayer_real(nn.Module):
         self.spectral_weight_pos = nn.Parameter(torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat) * (1./hidden_dimension)**0.5)
         self.spectral_weight_neg = nn.Parameter(torch.randn(hidden_dimension, hidden_dimension, n_modes[0], n_modes[1], dtype=torch.cfloat)* (1./hidden_dimension)**0.5)
 
-        self.channel_mixing = nn.Linear(hidden_dimension, hidden_dimension)
+        #self.channel_mixing = nn.Linear(hidden_dimension, hidden_dimension)
+        # if self.channel_mixing is commented: I am using a per-channel affine instead
+        
+        self.channel_weight = nn.Parameter(torch.ones(hidden_dimension))
+        self.channel_bias = nn.Parameter(torch.zeros(hidden_dimension))
 
     def forward(self, x):
         Nx = x.shape[-3]
@@ -111,9 +124,12 @@ class FourierLayer_real(nn.Module):
         out_fft[:, -m0:, :m1, :] = torch.einsum('bxyi,ioxy->bxyo', fft_x[:, -m0:, :m1, :], self.spectral_weight_neg)
 
         spectral_convolution_out = torch.fft.irfftn(out_fft, s=(Nx, Ny), dim=(-3, -2)) # Kl in (*) page 32
-        channel_mixing_out = self.channel_mixing(x) # Wl in (*) page 32
+        #channel_mixing_out = self.channel_mixing(x) # Wl in (*) page 32
 
-        return spectral_convolution_out + channel_mixing_out # don't see spectral_convolution_out.real because it's already real 
+        per_channel_affine_out = x * self.channel_weight + self.channel_bias
+        # return the real part (GELU is only implemented for floating types)
+        #return spectral_convolution_out.real + channel_mixing_out 
+        return spectral_convolution_out + per_channel_affine_out
 
 
 class FNO_v1(nn.Module):
