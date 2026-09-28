@@ -11,4 +11,4 @@
 
 Results, sofar: 
 - DeepONets give satisfying results as one can see in the plots in the `deepOnet_trials.ipynb` notebook.
-- the FNO that I coded gives, at best, mediocre results (and so does the model from the neuraloperator library). But sofar I tested both models with only 30 epochs (for a first quick check, preventing overfitting), so work is still in progress. The results obtained with `neuraloperator` do not seem to be much better anyways. Probably (also) an issue concerning the small size of the training dataset.
+- the FNO that I coded gives, at best, mediocre results (and so does the model from the neuraloperator library). Limited to a few dozens epochs due to overfitting. The results obtained with `neuraloperator` do not seem to be much better anyways (although they show less high-frequency noise, but take much longer to train per epoch). I tried raising the size of the training dataset from 2000 to 5000 functions, no macroscopic difference. 
