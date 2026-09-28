@@ -10,5 +10,5 @@
 - `create_dataset_FNO_neuralop.py` creates and saves a training dataset to be using when training an FNO from the neuraloperator library. 
 
 Results, sofar: 
-- DeepONets give satisfying results as one can see in the plots in the `deepOnet_trials.ipynb` notebook.
+- DeepONets give satisfying results as one can see in the plots in the `deepOnet_trials.ipynb` notebook. In particular, Fourier encoding proves very effective.
 - the FNO that I coded gives, at best, mediocre results (and so does the model from the neuraloperator library). Limited to a few dozens epochs due to overfitting. The results obtained with `neuraloperator` do not seem to be much better anyways (although they show less high-frequency noise, but take much longer to train per epoch). I tried raising the size of the training dataset from 2000 to 5000 functions, no macroscopic difference. 
